@@ -1,0 +1,42 @@
+#!/usr/bin/env node
+'use strict';
+
+process.bin = process.title = 'faye-app';
+
+var pkg     = require('../package.json');
+var mout    = require('mout');
+var console = require('better-console');
+var options = require('../util/cli').readOptions();
+var app     = require('../index')(options);
+
+var runtimeOptions = app.getOptions();
+
+// Version
+if (options.version) {
+    process.stdout.write(pkg.version + '\n');
+    process.exit();
+}
+
+// Info
+if (options.info) {
+    console.info('\n' + 'Runtime options:' + '\n');
+    for(var key in runtimeOptions) {
+        var value = runtimeOptions[key];
+        if (typeof value === 'string' || value instanceof Array) {
+            value = '"' + value + '"';
+        }
+        console.log( '    --' + mout.string.unCamelCase(key, '-') + '=' + value + '\n');
+    }
+    process.exit();
+}
+
+// Run app
+console.info('Faye-app version: ');
+console.log(pkg.version  + '\n');
+
+var scheme = runtimeOptions['tls'] ? 'https' : 'http';
+var endpoint = scheme + '://localhost:' + runtimeOptions['port'] + runtimeOptions['mount'];
+console.info('Faye-app endpoint: ');
+console.log(endpoint  + '\n');
+
+app.run();
