@@ -2,6 +2,7 @@
   "name": "faye-app",
   "description": "Simple pub/sub messaging for the web",
   "author": "Sergei Vizel <sergei.vizel@gmail.com> (https://github.com/cravler)",
+  "homepage": "https://github.com/cravler/faye-app",
   "keywords": [
     "websocket",
     "pubsub",
@@ -27,8 +28,15 @@
     "nopt": "^3.0.1",
     "request": "^2.49.0"
   },
+  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git://github.com/cravler/faye-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cravler/faye-app/issues"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
