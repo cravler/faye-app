@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Faye-app: Debug Console</title>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+        $(function() {
+
+            var ws = null;
+            var stopDebug = false;
+
+            var showConnectionWarning = function() {
+                return setTimeout(function() {
+                    $('#connection_warning').show();
+                }, 500);
+            };
+            var connect = function(connectionWarningId) {
+                var host = window.document.location.host.replace(/:.*/, '');
+                ws = new WebSocket('ws://' + host + '[PORT]' + '[URL_PREFIX]');
+                ws.onopen = function() {
+                    clearTimeout(connectionWarningId);
+                    $('#connection_warning').hide();
+                };
+                ws.onmessage = function(event) {
+
+                    if (stopDebug) {
+                        return;
+                    }
+
+                    var data = JSON.parse(event.data);
+
+                    $('#debug_waiting').hide();
+
+                    var typeCls = 'active';
+                    var typeText = '';
+                    var expandText = '';
+                    var messageText = data['channel'] ? 'Channel: ' + data['channel'] : '';
+
+                    if (data['type'] == 'handshake') {
+                        typeCls = 'success';
+                        typeText = 'Connection';
+                    }
+                    else if (data['type'] == 'disconnect') {
+                        typeCls = 'danger';
+                        typeText = 'Disconnection';
+                    }
+                    else if (data['type'] == 'subscribe') {
+                        typeText = 'Subscribed';
+                    }
+                    else if (data['type'] == 'unsubscribe') {
+                        typeText = 'Unsubscribed';
+                    }
+                    else if (data['type'] == 'publish') {
+                        typeCls = '';
+                        typeText = 'API Message';
+                        expandText = '►';
+
+                        var dataText = data['data'];
+                        if (typeof dataText !== 'string') {
+                            try {
+                                dataText = JSON.stringify(dataText, undefined, 2);
+                            } catch (e) {}
+                        }
+
+                        $('#debug_data').prepend([
+                            '<tr class="message_body">',
+                                '<td class="debug_data" colspan="5">',
+                                    '<pre>' + dataText + '</pre>',
+                                '</td>',
+                            '</tr>'
+                        ].join(''));
+                    }
+
+                    var time = new Date();
+                    var timeText = (
+                        ('0' + time.getHours()).slice(-2)   + ':' +
+                        ('0' + time.getMinutes()).slice(-2) + ':' +
+                        ('0' + time.getSeconds()).slice(-2)
+                    );
+
+                    $('#debug_data').prepend([
+                        '<tr class="message_body">',
+                            '<td class="debug_expand ' + typeCls + '"> ' + expandText + ' </td>',
+                            '<td class="debug_type ' + typeCls + '">' + typeText + '</td>',
+                            '<td class="debug_client_id">' + (data['clientId'] || '') + '</td>',
+                            '<td class="debug_message">' + messageText + '</td>',
+                            '<td class="debug_time">' + timeText + '</td>',
+                        '</tr>'
+                    ].join(''));
+                };
+                ws.onclose = function() {
+                    connect(showConnectionWarning());
+                };
+            };
+            connect(showConnectionWarning());
+
+            $('#event_creator').submit(function(event) {
+                event.preventDefault();
+                var values = {};
+                $.each($(this).serializeArray(), function(i, field) {
+                    try {
+                        field.value = JSON.parse(field.value);
+                    } catch (e) {}
+                    values[field.name] = field.value;
+                });
+                if (ws) {
+                    ws.send(JSON.stringify(values));
+                    setTimeout(function() {
+                        $('#ajax_message').hide();
+                    }, 1000);
+                    $('#ajax_message').show();
+                }
+            });
+
+            $('#clear_console').click(function(event) {
+                event.preventDefault();
+                $('#debug_data .message_body').remove();
+                $('#debug_waiting').show();
+            });
+
+            $('#toggle_logging').click(function(event) {
+                event.preventDefault();
+                stopDebug = !stopDebug;
+                $(this).html(stopDebug ? 'Resume' : 'Pause');
+            });
+
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="row-fluid">
+            <div class="col-md-8">
+                <div class="page-header">
+                    <form class="pull-right">
+                        <button id="clear_console" class="btn btn-danger">Clear</button>
+                        <button id="toggle_logging" class="btn btn-primary">Pause</button>
+                    </form>
+                    <h3>Console <small>displays all events happening for this app</small></h3>
+                </div>
+
+                <div id="display">
+
+                    <div class="alert alert-danger" role="alert" id="connection_warning" style="display:none;">
+                        <strong>Connection problem!</strong>
+                        <p>We're unable to connect you to server. This may indicate that your browser does not support WebSockets.</p>
+                    </div>
+
+                    <table class="table" id="debug_console">
+
+                        <thead>
+                            <tr>
+                                <th id="debug-expand"></th>
+                                <th id="debug-type">Type</th>
+                                <th id="debug-client-id">Client ID</th>
+                                <th id="debug-details">Details</th>
+                                <th id="debug-timestamp">Time</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="debug_data">
+                            <tr id="debug_waiting">
+                                <td colspan="5">
+                                    <h4>Waiting for events...</h4>
+                                    <p>Events triggered by your application will show up here.
+                                </td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+                </div>
+            </div>
+            <div class="col-md-4">
+
+                <div class="page-header">
+                    <h3>Create publish Event</h3>
+                </div>
+
+                <form method="post" id="event_creator" action="#" accept-charset="UTF-8">
+                    <div class="form-group">
+                        <label for="event_channel">Channel</label>
+                        <input type="text" placeholder="e.g. ´/foo´" required="" class="form-control" id="event_channel" name="channel">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="event_data">Data</label>
+                        <textarea placeholder="e.g. ´{ &quot;text&quot;: &quot;Hi there&quot; }´" required="" rows="5" class="form-control" id="event_data" name="data"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="event_data">Ext</label>
+                        <textarea placeholder="e.g. ´{ &quot;password&quot;: &quot;...&quot; }´" rows="5" class="form-control" id="event_ext" name="ext"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="submit_button">Send event</button>
+
+                    <div class="alert alert-success" role="alert" id="ajax_message" style="margin-top:10px; display:none;">
+                        <p>Event sent successfully.</p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

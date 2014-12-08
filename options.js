@@ -5,7 +5,7 @@ module.exports = {
     cert: process.env.FAYE_CERT || null,
     port: process.env.FAYE_PORT || 8000,
     mount: process.env.FAYE_MOUNT || '/pub-sub',
-    timeout: process.env.FAYE_TIMEOUT || 45,
+    timeout: process.env.FAYE_TIMEOUT || 10,
     ping: process.env.FAYE_PING || null,
     engine: process.env.FAYE_ENGINE || null,
     extensions: process.env.FAYE_EXTENSIONS || null,

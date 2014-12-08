@@ -1,18 +1,24 @@
 //
+var console = require('better-console');
 module.exports = function(options, bayeux) {
     bayeux.on('handshake', function(clientId) {
-        console.log('[debug] handshake: ', arguments);
+        console.warn('[debug] handshake: ');
+        console.log(arguments);
     });
     bayeux.on('subscribe', function(clientId, channel) {
-        console.log('[debug] subscribe: ', arguments);
+        console.warn('[debug] subscribe: ');
+        console.log(arguments);
     });
     bayeux.on('unsubscribe', function(clientId, channel) {
-        console.log('[debug] unsubscribe: ', arguments);
+        console.warn('[debug] unsubscribe: ');
+        console.log(arguments);
     });
     bayeux.on('publish', function(clientId, channel, data) {
-        console.log('[debug] publish: ', arguments);
+        console.warn('[debug] publish: ');
+        console.log(arguments);
     });
     bayeux.on('disconnect', function(clientId) {
-        console.log('[debug] disconnect: ', arguments);
+        console.warn('[debug] disconnect: ');
+        console.log(arguments);
     });
 };

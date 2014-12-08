@@ -16,11 +16,15 @@ module.exports = function(options) {
         return target;
     };
 
+    var prepareRequire = function(str) {
+        return str.replace('./', process.cwd() + '/');
+    };
+
     var defaultOptions = require(__dirname + '/options');
     if (process.env.FAYE_OPTIONS) {
         extend(
             defaultOptions,
-            require(process.env.FAYE_OPTIONS)
+            require(prepareRequire(process.env.FAYE_OPTIONS))
         );
     }
     if (fs.existsSync(process.cwd() + '/options.js')) {
@@ -36,7 +40,7 @@ module.exports = function(options) {
 
     var engine = options['engine'] || null;
     if (typeof engine == 'string') {
-        engine = require(engine)(options);
+        engine = require(prepareRequire(engine))(options);
     }
 
     var bayeux = new faye.NodeAdapter({
@@ -52,7 +56,7 @@ module.exports = function(options) {
         }
         options['extensions'].forEach(function(name) {
             if (name.length) {
-                bayeux.addExtension(require(name)(options, bayeux));
+                bayeux.addExtension(require(prepareRequire(name))(options, bayeux));
             }
         });
     }
@@ -63,7 +67,7 @@ module.exports = function(options) {
         }
         options['monitoring'].forEach(function(name) {
             if (name.length) {
-                require(name)(options, bayeux);
+                require(prepareRequire(name))(options, bayeux);
             }
         });
     }
@@ -82,7 +86,7 @@ module.exports = function(options) {
 
         requestListener = requestListener || options['requestListener'];
         if (typeof requestListener == 'string') {
-            requestListener = require(requestListener)(options);
+            requestListener = require(prepareRequire(requestListener))(options);
         }
 
         var server = options['tls']
