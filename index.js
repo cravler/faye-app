@@ -61,7 +61,7 @@ module.exports = function(options) {
         });
     }
 
-    if (options['monitoring'].length) {
+    if (options['monitoring']) {
         if (typeof options['monitoring'] == 'string') {
             options['monitoring'] = options['monitoring'].split(',');
         }
