@@ -1,6 +1,7 @@
 //
-var console = require('better-console');
 module.exports = function(options, bayeux) {
+    var console = require('better-console');
+
     bayeux.on('handshake', function(clientId) {
         console.warn('[debug] handshake: ');
         console.log(arguments);

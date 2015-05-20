@@ -1,11 +1,10 @@
 //
-var WebSocketServer = require('ws').Server;
-var http = require('http');
-var https = require('https');
-var fs = require('fs');
-var mime = require('mime');
-
 module.exports = function(options, bayeux) {
+    var WebSocketServer = require('ws').Server;
+    var http = require('http');
+    var https = require('https');
+    var fs = require('fs');
+    var mime = require('mime');
 
     var port = options['webDebugPort'] || process.env.FAYE_WEB_DEBUG_PORT || 8080;
     var urlPrefix = options['webDebugUrlPrefix'] || process.env.FAYE_WEB_DEBUG_URL_PREFIX || '';

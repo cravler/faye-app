@@ -3,9 +3,15 @@ module.exports = function(options, bayeux) {
     var request = require('request');
     var url = process.env.FAYE_EXT_SECURITY_CHECK_URL || null;
     var key = process.env.FAYE_EXT_SECURITY_CHECK_KEY || 'security';
+
+    var getServerClientId = function() {
+        return bayeux.getClient()._dispatcher.clientId;
+    };
+
     return {
         incoming: function(message, callback) {
-            if (url && (message.channel === '/meta/subscribe' || !message.channel.match(/^\/meta\//))) {
+            var system = message.clientId == getServerClientId();
+            if (!system && url && (message.channel === '/meta/subscribe' || !message.channel.match(/^\/meta\//))) {
                 request({
                     url: url,
                     method: 'POST',
