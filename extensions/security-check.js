@@ -27,8 +27,10 @@ module.exports = function(options, bayeux) {
                         if (!(result['success'] || false)) {
                             message.error = result['msg'] || '403::Authentication required';
                         }
-                        callback(message);
+                    } else {
+                        message.error = '500::Internal Server Error';
                     }
+                    callback(message);
                 });
             } else {
                 callback(message);
