@@ -5,7 +5,7 @@ process.bin = process.title = 'faye-app';
 
 var pkg     = require('../package.json');
 var mout    = require('mout');
-var console = require('better-console');
+var console = require('../util/console');
 var options = require('../util/cli').readOptions();
 var app     = require('../index')(options);
 
@@ -31,12 +31,9 @@ if (options.info) {
 }
 
 // Run app
-console.info('Faye-app version: ');
-console.log(pkg.version  + '\n');
-
+console.info('Faye-app version: ', pkg.version);
 var scheme = runtimeOptions['tls'] ? 'https' : 'http';
 var endpoint = scheme + '://localhost:' + runtimeOptions['port'] + runtimeOptions['mount'];
-console.info('Faye-app endpoint: ');
-console.log(endpoint  + '\n');
+console.info('Faye-app endpoint: ', endpoint);
 
 app.run();
