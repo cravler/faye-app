@@ -10,6 +10,7 @@ module.exports = function(options, bayeux) {
     var key        = process.env.FAYE_EXT_SECURITY_CHECK_KEY || 'security';
     var tokenKey   = process.env.FAYE_EXT_SECURITY_CHECK_TOKEN || 'system';
     var tokenValue = null;
+    var headersKey = process.env.FAYE_EXT_SECURITY_CHECK_HEADERS || 'headers';
     var cacheTTL   = process.env.FAYE_EXT_SECURITY_CHECK_CACHE_TTL || 5;
     var cache      = {};
     var timeouts   = {};
@@ -114,6 +115,7 @@ module.exports = function(options, bayeux) {
                 request({
                     url: url,
                     method: 'POST',
+                    headers: message.ext[headersKey] || {},
                     form: message
                 }, function(error, response, body) {
                     var result = { success: false, cache: false };
