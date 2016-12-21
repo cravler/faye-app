@@ -28,8 +28,12 @@
                 }, 500);
             };
             var connect = function(connectionWarningId) {
-                var host = window.document.location.host.replace(/:.*/, '');
-                ws = new WebSocket('wss://' + host + '[PORT]' + '[URL_PREFIX]');
+                var protocol = 'ws://';
+                if (window.location.protocol === 'https:') {
+                    protocol = 'wss://';
+                }
+                var host = protocol + window.document.location.host.replace(/:.*/, '');
+                ws = new WebSocket(host + '[PORT]' + '[URL_PREFIX]');
                 ws.onopen = function() {
                     clearTimeout(connectionWarningId);
                     $('#connection_warning').hide();
