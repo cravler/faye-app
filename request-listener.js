@@ -1,22 +1,21 @@
-//
-var fs = require('fs');
-var mime = require('mime');
+'use strict';
 
-module.exports = function(options) {
-    return function (request, response) {
-        var path = request.url;
-        if (request.url === '/') {
-            path = '/index.html';
-        }
-        else if (request.url === '/cert' && options['tls']) {
-            path = options['cert'];
-        }
-        fs.readFile(options['publicDir'] + path, function (err, content) {
-            var status = err ? 404 : 200;
-            try {
-                response.writeHead(status, {'Content-Type': mime.lookup(path)});
-                response.end(content || 'Not found');
-            } catch (e) {}
-        });
-    };
+const fs = require('fs');
+const mime = require('mime');
+
+module.exports = (options) => (request, response) => {
+    let path = request.url;
+    if (request.url === '/') {
+        path = '/index.html';
+    } else if (request.url === '/cert' && options['tls']) {
+        path = options['cert'];
+    }
+
+    fs.readFile(options['publicDir'] + path, (err, content) => {
+        const status = err ? 404 : 200;
+        try {
+            response.writeHead(status, {'Content-Type': mime.getType(path)});
+            response.end(content || 'Not found');
+        } catch (e) {}
+    });
 };

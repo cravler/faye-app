@@ -1,11 +1,11 @@
-//
-module.exports = function(options, bayeux) {
-    var cli     = require('../util/cli');
-    var console = require('../util/console');
+'use strict';
 
-    var enabled = !cli.isFalse(process.env.FAYE_EXT_PUSH_ONLY_SERVERS_ENABLED);
-    var key     = process.env.FAYE_EXT_PUSH_ONLY_SERVERS_KEY || 'password';
-    var secret  = process.env.FAYE_EXT_PUSH_ONLY_SERVERS_PASSWORD || 'ThisPasswordIsNotSoSecretChangeIt';
+const cli = require('../util/cli');
+
+module.exports = (options, bayeux) => {
+    const enabled = !cli.isFalse(process.env.FAYE_EXT_PUSH_ONLY_SERVERS_ENABLED);
+    const key     = process.env.FAYE_EXT_PUSH_ONLY_SERVERS_KEY || 'password';
+    const secret  = process.env.FAYE_EXT_PUSH_ONLY_SERVERS_PASSWORD || 'ThisPasswordIsNotSoSecretChangeIt';
 
     if (!enabled) {
         console.warn('[push-only-servers] disabled');
@@ -13,16 +13,16 @@ module.exports = function(options, bayeux) {
     }
 
     return {
-        incoming: function(message, callback) {
+        incoming: (message, callback) => {
             if (!message.channel.match(/^\/meta\//)) {
-                var password = message.ext && message.ext[key];
+                const password = message.ext && message.ext[key];
                 if (password !== secret) {
                     message.error = '403::Password required';
                 }
             }
             callback(message);
         },
-        outgoing: function(message, callback) {
+        outgoing: (message, callback) => {
             if (message.ext) {
                 delete message.ext[key];
             }

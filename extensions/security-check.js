@@ -1,36 +1,31 @@
-//
-module.exports = function(options, bayeux) {
-    var request = require('request');
-    var cli     = require('../util/cli');
-    var console = require('../util/console');
+'use strict';
 
-    var enabled    = !cli.isFalse(process.env.FAYE_EXT_SECURITY_CHECK_ENABLED);
-    var debug      = cli.isTrue(process.env.FAYE_EXT_SECURITY_CHECK_DEBUG);
-    var url        = process.env.FAYE_EXT_SECURITY_CHECK_URL || null;
-    var key        = process.env.FAYE_EXT_SECURITY_CHECK_KEY || 'security';
-    var tokenKey   = process.env.FAYE_EXT_SECURITY_CHECK_TOKEN || 'system';
-    var tokenValue = null;
-    var headersKey = process.env.FAYE_EXT_SECURITY_CHECK_HEADERS || 'headers';
-    var cacheTTL   = process.env.FAYE_EXT_SECURITY_CHECK_CACHE_TTL || 5;
-    var cache      = {};
-    var timeouts   = {};
+const colors = require('colors/safe');
+const request = require('request');
+const cli = require('../util/cli');
+
+module.exports = (options, bayeux) => {
+    const enabled    = !cli.isFalse(process.env.FAYE_EXT_SECURITY_CHECK_ENABLED);
+    const debug      = cli.isTrue(process.env.FAYE_EXT_SECURITY_CHECK_DEBUG);
+    const url        = process.env.FAYE_EXT_SECURITY_CHECK_URL || null;
+    const key        = process.env.FAYE_EXT_SECURITY_CHECK_KEY || 'security';
+    const tokenKey   = process.env.FAYE_EXT_SECURITY_CHECK_TOKEN || 'system';
+    const headersKey = process.env.FAYE_EXT_SECURITY_CHECK_HEADERS || 'headers';
+    const cacheTTL   = process.env.FAYE_EXT_SECURITY_CHECK_CACHE_TTL || 5;
+    const cache      = {};
+    const timeouts   = {};
 
     if (!enabled) {
         console.warn('[security-check] disabled');
         return {};
     }
 
-    var log = function() {
-        if (debug) {
-            console.info.apply(console, arguments);
-        }
-    };
+    let tokenValue = null;
 
-    var getServerClientId = function() {
-        return bayeux.getClient()._dispatcher.clientId;
-    };
-
-    var getToken = function(message) {
+    const info = (...args) => debug && console.info(...args);
+    const dump = obj => JSON.stringify(obj, null, 4);
+    const getServerClientId = () => bayeux.getClient()._dispatcher.clientId;
+    const getToken = (message) => {
         if (tokenKey) {
             if (message.ext && message.ext[key] && message.ext[key][tokenKey]) {
                 return message.ext[key][tokenKey];
@@ -38,96 +33,67 @@ module.exports = function(options, bayeux) {
         }
         return null;
     };
-
-    var hasToken = function(message) {
+    const hasToken = (message) => {
         if (tokenValue) {
             return tokenValue == getToken(message);
         }
         return false;
     };
 
-    bayeux.on('disconnect', function(clientId) {
+    bayeux.on('disconnect', clientId => {
         if (clientId in timeouts) {
-            log(
-                '[security-check] clear timeouts[%s]',
-                clientId
-            );
-            timeouts[clientId].forEach(function(timeout) {
+            info('[security-check] clear timeouts[%s]', clientId);
+            for (let timeout of timeouts[clientId]) {
                 clearTimeout(timeout);
-            });
+            }
             delete timeouts[clientId];
         }
 
         if (clientId in cache) {
-            log(
-                '[security-check] clear cache[%s]',
-                clientId
-            );
+            info('[security-check] clear cache[%s]', clientId);
             delete cache[clientId];
         }
     });
 
     return {
-        incoming: function(message, callback) {
-            var system = message.clientId == getServerClientId();
+        incoming: (message, callback) => {
+            const system = message.clientId == getServerClientId();
             if (!system && url && (message.channel === '/meta/subscribe' || !message.channel.match(/^\/meta\//))) {
                 if (hasToken(message)) {
-                    log(
-                        '[security-check] has token: ',
-                        '\n',
-                        tokenValue.white
-                    );
+                    info('[security-check] has token:', '\n' + colors.white(tokenValue));
                     callback(message);
                     return;
                 }
 
-                var clientId = message.clientId;
-                var channel = message['channel'];
+                let channel = message['channel'];
                 if (message['channel'] === '/meta/subscribe') {
                     channel = message['subscription'];
                 }
+                const clientId = message.clientId;
                 if (clientId in cache && channel in cache[clientId]) {
-                    var data = JSON.stringify({
-                        data: message['data'] || null,
-                        ext: message['ext'] || null
-                    });
-                    var index = cache[clientId][channel].indexOf(data);
+                    const { data = null, ext = null } = message;
+                    const index = cache[clientId][channel].indexOf(JSON.stringify({ data, ext }));
                     if (-1 !== index) {
-                        log(
-                            '[security-check] in cache[%s][%s]: ',
-                            clientId,
-                            channel,
-                            '\n',
-                            data.white
-                        );
+                        info('[security-check] in cache[%s][%s]:', clientId, channel, '\n' + colors.white(dump({ data, ext })));
                         callback(message);
                         return;
                     }
                 }
 
-                log(
-                    '[security-check] make request: ',
-                    url,
-                    '\n',
-                    message
-                );
+                info('[security-check] make request:', url, '\n' + dump(message));
 
                 request({
-                    url: url,
+                    url,
                     method: 'POST',
                     headers: message.ext[headersKey] || {},
                     form: message
-                }, function(error, response, body) {
-                    var result = { success: false, cache: false };
+                }, (error, response, body) => {
+                    let result = { success: false, cache: false };
                     if (!error && response.statusCode == 200) {
                         try {
                             result = JSON.parse(body.toString('utf-8'));
                         } catch (e) {
-                            console.error(
-                                '[security-check] JSON.parse: ',
-                                '\n',
-                                e, body.toString('utf-8')
-                            );
+                            console.error('[security-check] JSON.parse:\n', e, body.toString('utf-8'));
                         }
                         if (!(result['success'] || false)) {
                             message.error = result['msg'] || '403::Authentication required';
@@ -135,33 +101,19 @@ module.exports = function(options, bayeux) {
                     } else {
                         message.error = '500::Internal Server Error';
                         console.error(
-                            '[security-check] request[error]: ',
-                            url,
-                            '\n',
-                            message,
-                            '\n',
-                            error,
-                            '\n',
-                            response ? response.statusCode : null
+                            '[security-check] request[error]:', url,
+                            '\n' + dump(message),
+                            '\n' + error,
+                            '\n' + response ? response.statusCode : null
                         );
                     }
 
-                    log(
-                        '[security-check] request[%s]: ',
-                        result['success'] ? 'success' : 'failure',
-                        url,
-                        '\n',
-                        message
-                    );
+                    info('[security-check] request[%s]:', result['success'] ? 'success' : 'failure', url, '\n' + dump(message));
 
                     if (result['success']) {
-                        var token = getToken(message);
+                        let token = getToken(message);
                         if (token && !tokenValue) {
-                            log(
-                                '[security-check] set token: ',
-                                '\n',
-                                token.white
-                            );
+                            info('[security-check] set token:', colors.white(token));
                             tokenValue = token;
                         } else if (clientId && result['cache'] || false) {
                             if (true === result['cache']) {
@@ -176,45 +128,27 @@ module.exports = function(options, bayeux) {
                                 cache[clientId][channel] = [];
                             }
 
-                            var data = JSON.stringify({
-                                data: message['data'] || null,
-                                ext: message['ext'] || null
-                            });
+                            const { data = null, ext = null } = message;
 
-                            log(
-                                '[security-check] add to cache[%s][%s]: ',
-                                clientId,
-                                channel,
-                                '\n',
-                                data.white
-                            );
-                            cache[clientId][channel].push(data);
+                            info('[security-check] add to cache[%s][%s]: ', clientId, channel, '\n' + colors.white(dump({ data, ext })));
+                            cache[clientId][channel].push(JSON.stringify({ data, ext }));
 
                             if (!(clientId in timeouts)) {
                                 timeouts[clientId] = [];
                             }
 
-                            var timeout = setTimeout(function() {
+                            const timeout = setTimeout(function() {
                                 if (clientId in cache && channel in cache[clientId]) {
-                                    var index = cache[clientId][channel].indexOf(data);
+                                    const index = cache[clientId][channel].indexOf(JSON.stringify({ data, ext }));
                                     if (-1 !== index) {
-                                        log(
-                                            '[security-check] remove from cache[%s][%s]: ',
-                                            clientId,
-                                            channel,
-                                            '\n',
-                                            data.white
-                                        );
+                                        info('[security-check] remove from cache[%s][%s]: ', clientId, channel, '\n' + colors.white(dump({ data, ext })));
                                         cache[clientId][channel].splice(index, 1);
                                     }
                                 }
 
-                                var index = timeouts[clientId].indexOf(timeout);
+                                const index = timeouts[clientId].indexOf(timeout);
                                 if (-1 !== index) {
-                                    log(
-                                        '[security-check] remove from timeouts[%s]',
-                                        clientId
-                                    );
+                                    info('[security-check] remove from timeouts[%s]', clientId);
                                     timeouts[clientId].splice(index, 1);
                                 }
                             }, result['cache'] * 1000);
@@ -229,7 +163,7 @@ module.exports = function(options, bayeux) {
                 callback(message);
             }
         },
-        outgoing: function(message, callback) {
+        outgoing: (message, callback) => {
             if (message.ext) {
                 delete message.ext[key];
             }

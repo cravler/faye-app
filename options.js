@@ -1,4 +1,5 @@
-//
+'use strict';
+
 module.exports = {
     tls: process.env.FAYE_TLS || false,
     key: process.env.FAYE_KEY || null,

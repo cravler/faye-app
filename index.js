@@ -1,49 +1,40 @@
-//
-var fs    = require('fs');
-var http  = require('http');
-var https = require('https');
-var faye  = require('faye');
+'use strict';
 
-module.exports = function(options) {
+const fs    = require('fs');
+const http  = require('http');
+const https = require('https');
+const faye  = require('faye');
 
-    var extend = function(target) {
-        var sources = [].slice.call(arguments, 1);
-        sources.forEach(function(source) {
-            for (var prop in source) {
-                target[prop] = source[prop];
-            }
-        });
-        return target;
-    };
+const prepareRequire = str => str.replace('./', process.cwd() + '/');
 
-    var prepareRequire = function(str) {
-        return str.replace('./', process.cwd() + '/');
-    };
+const extend = (target, ...sources) => {
+    for (let source of sources) {
+        for (let prop in source) {
+            target[prop] = source[prop];
+        }
+    }
+    return target;
+};
 
-    var defaultOptions = require(__dirname + '/options');
+module.exports = options => {
+    const defaultOptions = require(__dirname + '/options');
+
     if (process.env.FAYE_OPTIONS) {
-        extend(
-            defaultOptions,
-            require(prepareRequire(process.env.FAYE_OPTIONS))
-        );
+        extend(defaultOptions, require(prepareRequire(process.env.FAYE_OPTIONS)));
     }
-    if (fs.existsSync(process.cwd() + '/options.js')) {
-        extend(
-            defaultOptions,
-            require(process.cwd() + '/options')
-        );
-    }
-    options = extend(
-        defaultOptions,
-        options || {}
-    );
 
-    var engine = options['engine'] || null;
+    if (fs.existsSync(process.cwd() + '/options.js')) {
+        extend(defaultOptions, require(process.cwd() + '/options'));
+    }
+
+    options = extend(defaultOptions, options || {});
+
+    let engine = options['engine'] || null;
     if (typeof engine == 'string') {
         engine = require(prepareRequire(engine))(options);
     }
 
-    var bayeux = new faye.NodeAdapter({
+    const bayeux = new faye.NodeAdapter({
         mount: options['mount'],
         timeout: Number(options['timeout']),
         ping: options['ping'] ? Number(options['ping']) : null,
@@ -54,48 +45,51 @@ module.exports = function(options) {
         if (typeof options['extensions'] == 'string') {
             options['extensions'] = options['extensions'].split(',');
         }
-        options['extensions'].forEach(function(name) {
+        for (let name of options['extensions']) {
             if (name.length) {
                 bayeux.addExtension(require(prepareRequire(name))(options, bayeux));
             }
-        });
+        }
     }
 
     if (options['monitoring']) {
         if (typeof options['monitoring'] == 'string') {
             options['monitoring'] = options['monitoring'].split(',');
         }
-        options['monitoring'].forEach(function(name) {
+        for (let name of options['monitoring']) {
             if (name.length) {
                 require(prepareRequire(name))(options, bayeux);
             }
-        });
+        }
     }
 
-    var App = function() {};
-
-    App.prototype.getOptions = function() {
-        return options;
-    };
-
-    App.prototype.getAdapter = function() {
-        return bayeux;
-    };
-
-    App.prototype.run = function(requestListener) {
-
-        requestListener = requestListener || options['requestListener'];
-        if (typeof requestListener == 'string') {
-            requestListener = require(prepareRequire(requestListener))(options);
+    class App {
+        constructor(options) {
+            this.options = options;
         }
 
-        var server = options['tls']
-                   ? https.createServer({ cert: options['cert'], key: options['key'] }, requestListener)
-                   : http.createServer(requestListener);
+        getOptions() {
+            return this.options;
+        }
 
-        bayeux.attach(server);
-        server.listen(Number(options['port']));
-    };
+        getAdapter() {
+            return bayeux;
+        }
 
-    return new App();
+        run(requestListener) {
+            requestListener = requestListener || this.options['requestListener'];
+            if (typeof requestListener == 'string') {
+                requestListener = require(prepareRequire(requestListener))(this.options);
+            }
+
+            const server = this.options['tls']
+                ? https.createServer({ cert: this.options['cert'], key:this. options['key'] }, requestListener)
+                : http.createServer(requestListener);
+
+            bayeux.attach(server);
+            server.listen(Number(this.options['port']));
+        }
+    }
+
+    return new App(options);
 };

@@ -1,49 +1,59 @@
-//
-module.exports = function(options, bayeux) {
-    var WebSocketServer = require('ws').Server;
-    var http = require('http');
-    var https = require('https');
-    var fs = require('fs');
-    var mime = require('mime');
+'use strict';
 
-    var port = options['webDebugPort'] || process.env.FAYE_WEB_DEBUG_PORT || 8080;
-    var urlPrefix = options['webDebugUrlPrefix'] || process.env.FAYE_WEB_DEBUG_URL_PREFIX || '';
+const fs = require('fs');
+const mime = require('mime');
+const http = require('http');
+const https = require('https');
+const WebSocket = require('ws');
+
+module.exports = (options, bayeux) => {
+    let port = options['webDebugPort'] || process.env.FAYE_WEB_DEBUG_PORT || 8080;
+    const urlPrefix = options['webDebugUrlPrefix'] || process.env.FAYE_WEB_DEBUG_URL_PREFIX || '';
 
     port = (port + '').split(':');
-    var server = http.createServer(function(request, response) {
-        var path = (request.url).replace(urlPrefix, '');
+    const server = http.createServer((request, response) => {
+        let path = (request.url).replace(urlPrefix, '');
         if (path === '/' || path === '') {
             path = '/index.html';
         }
-        fs.readFile(__dirname + '/web-debug' + path, function(err, content) {
-            var status = err ? 404 : 200;
+
+        fs.readFile(__dirname + '/web-debug' + path, (err, content) => {
+            const status = err ? 404 : 200;
             if (path == '/index.html' && status == 200) {
-                var connectPort = (port.length > 1 ? port[1]: port[0]);
+                const connectPort = (port.length > 1 ? port[1]: port[0]);
                 content = content.toString();
                 content = content.replace('[PORT]', (connectPort ? ':' + connectPort : ''));
                 content = content.replace('[URL_PREFIX]', urlPrefix);
             }
             try {
-                response.writeHead(status, {'Content-Type': mime.lookup(path)});
+                response.writeHead(status, {'Content-Type': mime.getType(path)});
                 response.end(content || 'Not found');
-            } catch (e) {}
+            } catch (e) {
+                response.end(e.message);
+            }
         });
     });
     server.listen(Number(port[0]));
 
-    var wss = new WebSocketServer({server: server});
-    wss.broadcast = function broadcast(data) {
+    const wss = new WebSocket.Server({ server });
+    wss.broadcast = data => {
         if (typeof data !== 'string') {
             data = JSON.stringify(data);
         }
-        for(var i in this.clients) {
+        for(let i in this.clients) {
             this.clients[i].send(data);
         }
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(data);
+            }
+        });
     };
-    wss.on('connection', function(ws) {
-        ws.on('message', function(message) {
-            var requestMethod = options['tls'] ? https.request : http.request;
-            var request = requestMethod({
+
+    wss.on('connection', ws => {
+        ws.on('message', message => {
+            const requestMethod = options['tls'] ? https.request : http.request;
+            const request = requestMethod({
                 host: '127.0.0.1',
                 port: options['port'],
                 path: options['mount'],
@@ -57,38 +67,9 @@ module.exports = function(options, bayeux) {
         });
     });
 
-    bayeux.on('handshake', function(clientId) {
-        wss.broadcast({
-            type: 'handshake',
-            clientId: clientId
-        });
-    });
-    bayeux.on('subscribe', function(clientId, channel) {
-        wss.broadcast({
-            type: 'subscribe',
-            clientId: clientId,
-            channel: channel
-        });
-    });
-    bayeux.on('unsubscribe', function(clientId, channel) {
-        wss.broadcast({
-            type: 'unsubscribe',
-            clientId: clientId,
-            channel: channel
-        });
-    });
-    bayeux.on('publish', function(clientId, channel, data) {
-        wss.broadcast({
-            type: 'publish',
-            clientId: clientId,
-            channel: channel,
-            data: data
-        });
-    });
-    bayeux.on('disconnect', function(clientId) {
-        wss.broadcast({
-            type: 'disconnect',
-            clientId: clientId
-        });
-    });
+    bayeux.on('handshake', clientId => wss.broadcast({ type: 'handshake', clientId }));
+    bayeux.on('subscribe', (clientId, channel) => wss.broadcast({ type: 'subscribe', clientId, channel }));
+    bayeux.on('unsubscribe', (clientId, channel) => wss.broadcast({ type: 'unsubscribe', clientId, channel }));
+    bayeux.on('publish', (clientId, channel, data) => wss.broadcast({ type: 'publish', clientId, channel, data }));
+    bayeux.on('disconnect', clientId => wss.broadcast({ type: 'disconnect', clientId }));
 };

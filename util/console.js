@@ -1,37 +1,23 @@
-//
-var util = require('util');
-var colors  = require('colors');
-colors.enabled = true;
+'use strict';
 
-var _ = function(args, type, color) {
-    if (!type) {
-        type = 'log';
-    }
-    if (color) {
-        var args = Array.prototype.slice.call(args);
-        args.unshift(colors[color](args.shift()));
-    }
-    var log = util.format.apply(this, args);
-    console[type].apply(console, [log]);
-};
+const colors = require('colors/safe');
 
-module.exports = {
-    $: console,
-    _: _,
+Object.entries({
+    info: colors.blue,
+    warn: colors.yellow,
+    error: colors.red
+}).map(([method, color]) => {
+    const _ = global.console[method];
+    global.console[method] = (...args) => {
+        if (args.length) {
+            let msg = args.shift();
+            if ('string' == typeof msg) {
+                msg = color(msg);
+            }
+            args.unshift(msg);
+        }
+        _(...args);
+    };
+});
 
-    log: function() {
-        _(arguments, 'log');
-    },
-
-    info: function() {
-        _(arguments, 'info', 'blue');
-    },
-
-    warn: function() {
-        _(arguments, 'warn', 'yellow');
-    },
-
-    error: function() {
-        _(arguments, 'error', 'red');
-    }
-};
+module.exports = global.console;

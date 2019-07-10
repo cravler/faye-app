@@ -1,33 +1,18 @@
-//
-var mout = require('mout');
-var nopt = require('nopt');
+'use strict';
 
-var isTrue = function(value) {
-    if (true == value) {
-        return true;
-    } else if ('true' == value) {
-        return true;
-    }
-    return false;
-};
+const mout = require('mout');
+const nopt = require('nopt');
 
-var isFalse = function(value) {
-    if (false == value) {
-        return true;
-    } else if ('false' == value) {
-        return true;
-    }
-    return false;
-};
+const isTrue = value => true == value || 'true' == value;
 
-var isNumber = function(value) {
-    return !isNaN(parseFloat(value)) && isFinite(value);
-};
+const isFalse = value => false == value || 'false' == value;
 
-var readOptions = function(argv) {
-    var parsedOptions = {};
-    var noptOptions = nopt({}, {}, argv);
-    mout.object.forOwn(noptOptions, function (value, key) {
+const isNumber = value => !isNaN(parseFloat(value)) && isFinite(value);
+
+const readOptions = argv => {
+    const parsedOptions = {};
+
+    mout.object.forOwn(nopt({}, {}, argv), (value, key) => {
         parsedOptions[mout.string.camelCase(key)] = isNumber(value) ? Number(value) : value;
     });
 
@@ -36,9 +21,4 @@ var readOptions = function(argv) {
     return parsedOptions;
 };
 
-module.exports = {
-    isTrue: isTrue,
-    isFalse: isFalse,
-    isNumber: isNumber,
-    readOptions: readOptions
-};
+module.exports = { isTrue, isFalse, isNumber, readOptions };

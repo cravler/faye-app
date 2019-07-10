@@ -3,13 +3,13 @@
 
 process.bin = process.title = 'faye-app';
 
-var pkg     = require('../package.json');
-var mout    = require('mout');
-var console = require('../util/console');
-var options = require('../util/cli').readOptions();
-var app     = require('../index')(options);
+const pkg     = require('../package.json');
+const mout    = require('mout');
+const console = require('../util/console');
+const options = require('../util/cli').readOptions();
+const app     = require('../index')(options);
 
-var runtimeOptions = app.getOptions();
+const runtimeOptions = app.getOptions();
 
 // Version
 if (options.version) {
@@ -20,8 +20,8 @@ if (options.version) {
 // Info
 if (options.info) {
     console.info('\n' + 'Runtime options:' + '\n');
-    for(var key in runtimeOptions) {
-        var value = runtimeOptions[key];
+    for(let key in runtimeOptions) {
+        let value = runtimeOptions[key];
         if (typeof value === 'string' || value instanceof Array) {
             value = '"' + value + '"';
         }
@@ -31,9 +31,9 @@ if (options.info) {
 }
 
 // Run app
-console.info('Faye-app version: ', pkg.version);
-var scheme = runtimeOptions['tls'] ? 'https' : 'http';
-var endpoint = scheme + '://localhost:' + runtimeOptions['port'] + runtimeOptions['mount'];
-console.info('Faye-app endpoint: ', endpoint);
+console.info('Faye-app version:', pkg.version);
+const scheme = runtimeOptions['tls'] ? 'https' : 'http';
+const endpoint = scheme + '://localhost:' + runtimeOptions['port'] + runtimeOptions['mount'];
+console.info('Faye-app endpoint:', endpoint);
 
 app.run();
