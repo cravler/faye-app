@@ -104,7 +104,7 @@ module.exports = (options, bayeux) => {
                             '[security-check] request[error]:', url,
                             '\n' + dump(message),
                             '\n' + error,
-                            '\n' + response ? response.statusCode : null
+                            '\n' + (response ? response.statusCode : null)
                         );
                     }
 
