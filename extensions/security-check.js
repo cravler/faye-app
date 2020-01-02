@@ -1,42 +1,82 @@
 'use strict';
 
+const crypto = require('crypto');
 const colors = require('colors/safe');
 const request = require('request');
 const cli = require('../util/cli');
 
+const protocolAndDomainRE = /^(?:\w+:)?\/\/(\S+)$/;
+
+const md5 = data => crypto.createHash('md5').update(data).digest('hex');
+
 module.exports = (options, bayeux) => {
-    const enabled    = !cli.isFalse(process.env.FAYE_EXT_SECURITY_CHECK_ENABLED);
-    const debug      = cli.isTrue(process.env.FAYE_EXT_SECURITY_CHECK_DEBUG);
-    const url        = process.env.FAYE_EXT_SECURITY_CHECK_URL || null;
-    const key        = process.env.FAYE_EXT_SECURITY_CHECK_KEY || 'security';
-    const tokenKey   = process.env.FAYE_EXT_SECURITY_CHECK_TOKEN || 'system';
-    const headersKey = process.env.FAYE_EXT_SECURITY_CHECK_HEADERS || 'headers';
-    const cacheTTL   = process.env.FAYE_EXT_SECURITY_CHECK_CACHE_TTL || 5;
-    const cache      = {};
-    const timeouts   = {};
+    const enabled          = !cli.isFalse(process.env.FAYE_EXT_SECURITY_CHECK_ENABLED);
+    const debug            = cli.isTrue(process.env.FAYE_EXT_SECURITY_CHECK_DEBUG);
+    const securityUrl      = process.env.FAYE_EXT_SECURITY_CHECK_URL || null;
+    const securityUrlSalt  = process.env.FAYE_EXT_SECURITY_CHECK_URL_SALT || '';
+    const securityKey      = process.env.FAYE_EXT_SECURITY_CHECK_KEY || 'security';
+    const systemTokenKey   = process.env.FAYE_EXT_SECURITY_CHECK_TOKEN || 'system';
+    const headersKey       = process.env.FAYE_EXT_SECURITY_CHECK_HEADERS || 'headers';
+    const cacheTTL         = process.env.FAYE_EXT_SECURITY_CHECK_CACHE_TTL || 5;
+    const cache            = {};
+    const timeouts         = {};
+    const systemTokenValue = {};
 
     if (!enabled) {
         console.warn('[security-check] disabled');
         return {};
     }
 
-    let tokenValue = null;
-
     const info = (...args) => debug && console.info(...args);
     const dump = obj => JSON.stringify(obj, null, 4);
     const getServerClientId = () => bayeux.getClient()._dispatcher.clientId;
-    const getToken = (message) => {
-        if (tokenKey) {
-            if (message.ext && message.ext[key] && message.ext[key][tokenKey]) {
-                return message.ext[key][tokenKey];
+
+    const getUrl = (message) => {
+        if (securityUrl) {
+            if (message.ext && message.ext[securityKey]) {
+                if (message.ext[securityKey][securityUrl] && message.ext[securityKey][securityUrl + '.hash']) {
+                    const token = getSystemToken(message) || message.ext[securityKey]['token'] || 'anonymous';
+                    const url = message.ext[securityKey][securityUrl];
+
+                    const hash = md5(token + ';' + url + ';' + securityUrlSalt);
+
+                    if (hash == message.ext[securityKey][securityUrl + '.hash']) {
+                        return url;
+                    }
+                }
+            }
+
+            if (!securityUrl.match(protocolAndDomainRE)) {
+                message.error = '401::Unauthorized';
+                console.error(
+                    '[security-check] getUrl:', securityUrl,
+                    '\n' + dump(message)
+                );
+            } else {
+                return securityUrl;
             }
         }
+
         return null;
     };
-    const hasToken = (message) => {
-        if (tokenValue) {
-            return tokenValue == getToken(message);
+
+    const getSystemToken = (message) => {
+        if (systemTokenKey) {
+            if (message.ext && message.ext[securityKey] && message.ext[securityKey][systemTokenKey]) {
+                return message.ext[securityKey][systemTokenKey];
+            }
         }
+
+        return null;
+    };
+
+    const hasSystemToken = (message) => {
+        const url = getUrl(message);
+
+        if (systemTokenValue[url]) {
+            return systemTokenValue[url] == getSystemToken(message);
+        }
+
         return false;
     };
 
@@ -57,10 +97,20 @@ module.exports = (options, bayeux) => {
 
     return {
         incoming: (message, callback) => {
-            const system = message.clientId == getServerClientId();
-            if (!system && url && (message.channel === '/meta/subscribe' || !message.channel.match(/^\/meta\//))) {
-                if (hasToken(message)) {
-                    info('[security-check] has token:', '\n' + colors.white(tokenValue));
+            let url = null;
+            let ignoreSecurity = true;
+
+            const internal = message.clientId == getServerClientId();
+            if (!internal && (message.channel === '/meta/subscribe' || !message.channel.match(/^\/meta\//))) {
+                url = getUrl(message);
+                if (url) {
+                    ignoreSecurity = false;
+                }
+            }
+
+            if (!ignoreSecurity) {
+                if (hasSystemToken(message)) {
+                    info('[security-check] has system token:', '\n' + colors.white(dump({ url, token: systemTokenValue[url] })));
                     callback(message);
                     return;
                 }
@@ -111,10 +161,10 @@ module.exports = (options, bayeux) => {
                     info('[security-check] request[%s]:', result['success'] ? 'success' : 'failure', url, '\n' + dump(message));
 
                     if (result['success']) {
-                        let token = getToken(message);
-                        if (token && !tokenValue) {
-                            info('[security-check] set token:', colors.white(token));
-                            tokenValue = token;
+                        let token = getSystemToken(message);
+                        if (token && !systemTokenValue[url]) {
+                            info('[security-check] set system token:', '\n' + colors.white(dump({ url, token })));
+                            systemTokenValue[url] = token;
                         } else if (clientId && result['cache'] || false) {
                             if (true === result['cache']) {
                                 result['cache'] = cacheTTL;
@@ -165,7 +215,7 @@ module.exports = (options, bayeux) => {
         },
         outgoing: (message, callback) => {
             if (message.ext) {
-                delete message.ext[key];
+                delete message.ext[securityKey];
             }
             callback(message);
         }
