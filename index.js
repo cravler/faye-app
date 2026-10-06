@@ -84,9 +84,21 @@ module.exports = options => {
 
             const server = this.options['tls']
                 ? https.createServer({ cert: this.options['cert'], key:this. options['key'] }, requestListener)
-                : http.createServer(requestListener);
+                : http.createServer(requestListener)
+            ;
 
             bayeux.attach(server);
+
+            let serverHooks = this.options['serverHooks'] || [];
+            if (typeof serverHooks == 'string') {
+                serverHooks = serverHooks.split(',');
+            }
+            for (let name of serverHooks) {
+                if (name.length) {
+                    require(prepareRequire(name))(this.options, bayeux)(server);
+                }
+            }
+
             server.listen(Number(this.options['port']));
         }
     }

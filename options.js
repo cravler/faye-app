@@ -12,5 +12,6 @@ module.exports = {
     extensions: process.env.FAYE_EXTENSIONS || null,
     monitoring: process.env.FAYE_MONITORING || null,
     requestListener: process.env.FAYE_REQUEST_LISTENER || null,
+    serverHooks: process.env.FAYE_SERVER_HOOKS || null,
     publicDir: process.env.FAYE_PUBLIC_DIR || __dirname + '/public'
 };
