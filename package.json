@@ -1,7 +1,7 @@
 {
   "name": "faye-app",
   "description": "Simple pub/sub messaging for the web",
-  "author": "Sergei Vizel <sergei.vizel@gmail.com> (https://github.com/cravler)",
+  "author": "Sergei Vizel (https://github.com/cravler)",
   "homepage": "https://github.com/cravler/faye-app",
   "keywords": [
     "websocket",
@@ -11,24 +11,23 @@
     "http"
   ],
   "license": "MIT",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "main": "index.js",
   "bin": {
     "faye-app": "bin/faye-app"
   },
   "engines": {
-    "node": ">=10"
+    "node": "^24.15.0 || >=26"
   },
   "dependencies": {
     "colors": "^1.4.0",
-    "faye": "^1.2.4",
+    "faye": "^1.4.3",
     "faye-redis": "^0.2.0",
-    "mime": "^2.4.4",
-    "mout": "^1.2.2",
-    "nopt": "^4.0.1",
+    "mime": "^4.1.0",
+    "mout": "^1.2.4",
+    "nopt": "^10.0.1",
     "redis": "^3.1.2",
-    "request": "^2.88.0",
-    "ws": "^7.2.1"
+    "ws": "^8.22.0"
   },
   "devDependencies": {},
   "repository": {

@@ -1,10 +1,11 @@
 'use strict';
 
 const fs = require('fs');
-const mime = require('mime');
+const mime = require('mime').default; // mime@4 is ESM-only (default export)
 const http = require('http');
 const https = require('https');
 const WebSocket = require('ws');
+const safePath = require('../util/safe-path');
 
 module.exports = (options, bayeux) => {
     let port = options['webDebugPort'] || process.env.FAYE_WEB_DEBUG_PORT || 8080;
@@ -12,12 +13,19 @@ module.exports = (options, bayeux) => {
 
     port = (port + '').split(':');
     const server = http.createServer((request, response) => {
-        let path = (request.url).replace(urlPrefix, '');
+        let path = request.url.split(/[?#]/)[0].replace(urlPrefix, '');
         if (path === '/' || path === '') {
             path = '/index.html';
         }
 
-        fs.readFile(__dirname + '/web-debug' + path, (err, content) => {
+        const filePath = safePath(__dirname + '/web-debug', path);
+        if (!filePath) {
+            response.writeHead(403, {'Content-Type': 'text/plain'});
+            response.end('Forbidden');
+            return;
+        }
+
+        fs.readFile(filePath, (err, content) => {
             const status = err ? 404 : 200;
             if (path == '/index.html' && status == 200) {
                 const connectPort = (port.length > 1 ? port[1]: port[0]);

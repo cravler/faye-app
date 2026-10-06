@@ -1,21 +1,36 @@
 'use strict';
 
 const fs = require('fs');
-const mime = require('mime');
+const path = require('path');
+const mime = require('mime').default; // mime@4 is ESM-only (default export)
+const safePath = require('./util/safe-path');
 
-module.exports = (options) => (request, response) => {
-    let path = request.url;
-    if (request.url === '/') {
-        path = '/index.html';
-    } else if (request.url === '/cert' && options['tls']) {
-        path = options['cert'];
-    }
+module.exports = (options) => {
+    const root = path.resolve(options['publicDir']);
 
-    fs.readFile(options['publicDir'] + path, (err, content) => {
-        const status = err ? 404 : 200;
-        try {
-            response.writeHead(status, {'Content-Type': mime.getType(path)});
-            response.end(content || 'Not found');
-        } catch (e) {}
-    });
+    return (request, response) => {
+        const pathname = request.url.split(/[?#]/)[0];
+
+        let filePath;
+        if (pathname === '/cert' && options['tls']) {
+            filePath = path.resolve(options['cert']);
+        } else {
+            filePath = safePath(root, pathname === '/' ? '/index.html' : pathname);
+            if (!filePath) {
+                response.writeHead(403, { 'Content-Type': 'text/plain' });
+                return response.end('Forbidden');
+            }
+        }
+
+        fs.readFile(filePath, (err, content) => {
+            if (err) {
+                response.writeHead(404, { 'Content-Type': 'text/plain' });
+                return response.end('Not found');
+            }
+            response.writeHead(200, {
+                'Content-Type': mime.getType(filePath) || 'application/octet-stream'
+            });
+            response.end(content);
+        });
+    };
 };

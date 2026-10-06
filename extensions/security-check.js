@@ -2,7 +2,6 @@
 
 const crypto = require('crypto');
 const colors = require('colors/safe');
-const request = require('request');
 const cli = require('../util/cli');
 
 const protocolAndDomainRE = /^(?:\w+:)?\/\/(\S+)$/;
@@ -132,18 +131,13 @@ module.exports = (options, bayeux) => {
 
                 info('[security-check] make request:', url, '\n' + dump(message));
 
-                request({
-                    url,
-                    method: 'POST',
-                    headers: message.ext[headersKey] || {},
-                    form: message
-                }, (error, response, body) => {
+                const done = (error, status, body) => {
                     let result = { success: false, cache: false };
-                    if (!error && response.statusCode == 200) {
+                    if (!error && status == 200) {
                         try {
-                            result = JSON.parse(body.toString('utf-8'));
+                            result = JSON.parse(body);
                         } catch (e) {
-                            console.error('[security-check] JSON.parse:\n', e, body.toString('utf-8'));
+                            console.error('[security-check] JSON.parse:\n', e, body);
                         }
                         if (!(result['success'] || false)) {
                             message.error = result['msg'] || '403::Authentication required';
@@ -154,7 +148,7 @@ module.exports = (options, bayeux) => {
                             '[security-check] request[error]:', url,
                             '\n' + dump(message),
                             '\n' + error,
-                            '\n' + (response ? response.statusCode : null)
+                            '\n' + status
                         );
                     }
 
@@ -208,7 +202,18 @@ module.exports = (options, bayeux) => {
                     }
 
                     callback(message);
-                });
+                };
+
+                Promise.resolve()
+                    .then(() => {
+                        const headers = new Headers((message.ext && message.ext[headersKey]) || {});
+                        headers.set('Content-Type', 'application/json');
+
+                        return fetch(url, { method: 'POST', headers, body: JSON.stringify(message) });
+                    })
+                    .then(async response => ({ status: response.status, body: await response.text() }))
+                    .then(({ status, body }) => done(null, status, body), (error) => done(error, null, null))
+                ;
             } else {
                 callback(message);
             }
